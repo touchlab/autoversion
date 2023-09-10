@@ -1,5 +1,6 @@
 import * as core from '@actions/core'
-import { wait } from './wait'
+import simpleGit from 'simple-git'
+import semver from 'semver/preload'
 
 /**
  * The main function for the action.
@@ -7,18 +8,23 @@ import { wait } from './wait'
  */
 export async function run(): Promise<void> {
   try {
-    const ms: string = core.getInput('milliseconds')
+    const versionBase: string = core.getInput('versionBase')
 
-    // Debug logs are only output if the `ACTIONS_STEP_DEBUG` secret is true
-    core.debug(`Waiting ${ms} milliseconds ...`)
+    core.debug(`versionBase: ${versionBase}`)
 
-    // Log the current timestamp, wait, then log the new timestamp
-    core.debug(new Date().toTimeString())
-    await wait(parseInt(ms, 10))
-    core.debug(new Date().toTimeString())
+    const tags = await simpleGit().tags()
+    const versionBaseCompare = `${versionBase}.`
+    const matching = tags.all
+      .filter(t => t.startsWith(versionBaseCompare))
+      .map(t => semver.parse(t))
+      .filter(ver => ver !== null && ver !== undefined)
+
+    const sorted = matching.sort((v1, v2) => v2!.compare(v1!))
+    const nextPatch = sorted.length > 0 ? sorted[0]!.patch + 1 : 0
+    const nextVersion = `${versionBase}.${nextPatch}`
 
     // Set outputs for other workflow steps to use
-    core.setOutput('time', new Date().toTimeString())
+    core.setOutput('nextVersion', nextVersion)
   } catch (error) {
     // Fail the workflow run if an error occurs
     if (error instanceof Error) core.setFailed(error.message)
