@@ -14,9 +14,9 @@ export async function run(): Promise<void> {
 
     const tags = await simpleGit().tags()
     const versionBaseCompare = `${versionBase}.`
-    core.debug("----------tags----------")
-    tags.all.forEach((t)=>core.debug(t))
-    core.debug("----------tags----------")
+    core.debug('----------tags----------')
+    tags.all.forEach(t => core.debug(t))
+    core.debug('----------tags----------')
     const matching = tags.all
       .filter(t => t.startsWith(versionBaseCompare))
       .map(t => semver.parse(t))

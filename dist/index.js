@@ -11628,6 +11628,9 @@ async function run() {
         core.debug(`versionBase: ${versionBase}`);
         const tags = await (0, simple_git_1.default)().tags();
         const versionBaseCompare = `${versionBase}.`;
+        core.debug('----------tags----------');
+        tags.all.forEach(t => core.debug(t));
+        core.debug('----------tags----------');
         const matching = tags.all
             .filter(t => t.startsWith(versionBaseCompare))
             .map(t => preload_1.default.parse(t))
