@@ -11618,6 +11618,7 @@ exports.run = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const simple_git_1 = __importDefault(__nccwpck_require__(9103));
 const preload_1 = __importDefault(__nccwpck_require__(4360));
+const TEMP_PUBLISH_PREFIX = "autoversion-tmp-publishing-";
 /**
  * The main function for the action.
  * @returns {Promise<void>} Resolves when the action is complete.
@@ -11626,12 +11627,14 @@ async function run() {
     try {
         const versionBase = core.getInput('versionBase');
         core.debug(`versionBase: ${versionBase}`);
-        const tags = await (0, simple_git_1.default)().tags();
+        const git = (0, simple_git_1.default)();
+        const tags = await git.tags();
         const versionBaseCompare = `${versionBase}.`;
         core.debug('----------tags----------');
         tags.all.forEach(t => core.debug(t));
         core.debug('----------tags----------');
         const matching = tags.all
+            .map(t => t.startsWith(TEMP_PUBLISH_PREFIX) ? t.substring(TEMP_PUBLISH_PREFIX.length) : t)
             .filter(t => t.startsWith(versionBaseCompare))
             .map(t => preload_1.default.parse(t))
             .filter(ver => ver !== null && ver !== undefined);
@@ -11640,6 +11643,9 @@ async function run() {
         const nextVersion = `${versionBase}.${nextPatch}`;
         // Set outputs for other workflow steps to use
         core.setOutput('nextVersion', nextVersion);
+        const markerTag = `${TEMP_PUBLISH_PREFIX}${nextVersion}`;
+        await git.raw(["tag", markerTag]);
+        await git.push(["push", "origin", "tag", markerTag]);
     }
     catch (error) {
         // Fail the workflow run if an error occurs
