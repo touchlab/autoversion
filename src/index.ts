@@ -14,7 +14,8 @@ export async function run(): Promise<void> {
 
     core.debug(`versionBase: ${versionBase}`)
 
-    const tags = await simpleGit().tags()
+    const git = simpleGit();
+    const tags = await git.tags()
     const versionBaseCompare = `${versionBase}.`
     core.debug('----------tags----------')
     tags.all.forEach(t => core.debug(t))
@@ -33,8 +34,8 @@ export async function run(): Promise<void> {
     core.setOutput('nextVersion', nextVersion)
 
     const markerTag = `${TEMP_PUBLISH_PREFIX}${nextVersion}`;
-    simpleGit().addTag(markerTag)
-    simpleGit().pushTags()
+    await git.addTag(markerTag)
+    await git.pushTags()
   } catch (error) {
     // Fail the workflow run if an error occurs
     if (error instanceof Error) core.setFailed(error.message)
