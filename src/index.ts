@@ -47,7 +47,7 @@ export async function run(): Promise<void> {
 
       await Promise.all(tagsToDelete.map(async (t) => {
         await git.raw(["tag", "-d", t])
-        await git.raw(["push", "origin", "-d", markerTagPrefix])
+        await git.raw(["push", "origin", "-d", t])
       }))
     }
   } catch (error) {
