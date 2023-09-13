@@ -6,8 +6,8 @@ inputs:
   versionBase:
     description: 'Base version value. Must be x.y.'
     required: true
-  removeTempPublish:
-    description: 'Call again when done to clear temp tag.'
+  finalizeBuildVersion:
+    description: 'Version to finalize. This is the second completion step of autoversion.'
     required: false
 
 outputs:
