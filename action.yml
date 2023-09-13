@@ -6,6 +6,9 @@ inputs:
   versionBase:
     description: 'Base version value. Must be x.y.'
     required: true
+  removeTempPublish:
+    description: 'Call again when done to clear temp tag.'
+    required: false
 
 outputs:
   nextVersion:
