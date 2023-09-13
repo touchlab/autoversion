@@ -34,8 +34,8 @@ export async function run(): Promise<void> {
     core.setOutput('nextVersion', nextVersion)
 
     const markerTag = `${TEMP_PUBLISH_PREFIX}${nextVersion}`;
-    await git.addTag(markerTag)
-    await git.pushTags("origin")
+    await git.raw(["tag", markerTag])
+    await git.push(["push", "origin", "tag", markerTag])
   } catch (error) {
     // Fail the workflow run if an error occurs
     if (error instanceof Error) core.setFailed(error.message)
