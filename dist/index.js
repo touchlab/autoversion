@@ -11631,6 +11631,9 @@ async function autoversionSetup(tags, versionBase, git) {
     const nextVersion = `${versionBase}.${nextPatch}`;
     // Set outputs for other workflow steps to use
     core.setOutput('nextVersion', nextVersion);
+    const branchName = `build-${nextVersion}`;
+    await git.checkoutLocalBranch(branchName);
+    await git.raw("push", "origin", "-u", branchName);
     const markerTag = `${TEMP_PUBLISH_PREFIX}${nextVersion}`;
     await git.raw(["tag", markerTag]);
     await git.raw(["push", "origin", "tag", markerTag]);
