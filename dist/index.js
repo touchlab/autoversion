@@ -11637,7 +11637,6 @@ async function autoversionSetup(tags, versionBase, git) {
     await git.raw(["tag", markerTag]);
     await git.raw(["push", "origin", "tag", markerTag]);
     core.debug(`autoversion setup complete with markerTag ${markerTag}`);
-    return branchName;
 }
 async function autoversionComplete(git, versionBase, finalizeBuildVersion, branchName, tags) {
     await git.add("./Package.swift");
@@ -11667,11 +11666,11 @@ async function run() {
         core.debug('----------tags----------');
         tags.all.forEach(t => core.debug(t));
         core.debug('----------tags----------');
-        let branchName = '';
         if (finalizeBuildVersion === '') {
-            branchName = await autoversionSetup(tags, versionBase, git);
+            await autoversionSetup(tags, versionBase, git);
         }
         else {
+            const branchName = `build-${finalizeBuildVersion}`;
             await autoversionComplete(git, versionBase, finalizeBuildVersion, branchName, tags);
         }
     }
