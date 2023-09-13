@@ -11633,17 +11633,18 @@ async function autoversionSetup(tags, versionBase, git) {
     core.setOutput('nextVersion', nextVersion);
     const branchName = `build-${nextVersion}`;
     await git.checkoutLocalBranch(branchName);
-    await git.raw("push", "origin", "-u", branchName);
     const markerTag = `${TEMP_PUBLISH_PREFIX}${nextVersion}`;
     await git.raw(["tag", markerTag]);
     await git.raw(["push", "origin", "tag", markerTag]);
     core.debug(`autoversion setup complete with markerTag ${markerTag}`);
+    return branchName;
 }
-async function autoversionComplete(git, versionBase, finalizeBuildVersion, tags) {
+async function autoversionComplete(git, versionBase, finalizeBuildVersion, branchName, tags) {
     await git.add("./Package.swift");
     await git.commit(`KMM SPM package release for ${finalizeBuildVersion}`);
     await git.addAnnotatedTag(finalizeBuildVersion, `KMM release version ${finalizeBuildVersion}`);
-    await git.raw("push", "--follow-tags");
+    await git.raw("push", "origin", "-u", branchName, "--follow-tags");
+    // await git.raw("push", "--follow-tags")
     const markerTagPrefix = `${TEMP_PUBLISH_PREFIX}${versionBase}`;
     const tagsToDelete = tags.all.filter(t => t.startsWith(markerTagPrefix));
     await Promise.all(tagsToDelete.map(async (t) => {
@@ -11666,11 +11667,12 @@ async function run() {
         core.debug('----------tags----------');
         tags.all.forEach(t => core.debug(t));
         core.debug('----------tags----------');
+        let branchName = '';
         if (finalizeBuildVersion === '') {
-            await autoversionSetup(tags, versionBase, git);
+            branchName = await autoversionSetup(tags, versionBase, git);
         }
         else {
-            await autoversionComplete(git, versionBase, finalizeBuildVersion, tags);
+            await autoversionComplete(git, versionBase, finalizeBuildVersion, branchName, tags);
         }
     }
     catch (error) {
