@@ -6,6 +6,10 @@ inputs:
   versionBase:
     description: 'Base version value. Must be x.y.'
     required: true
+  createBuildBranch:
+    description: 'If true, create a build branch.'
+    required: false
+    default: 'false'
   finalizeBuildVersion:
     description: 'Version to finalize. This is the second completion step of autoversion.'
     required: false

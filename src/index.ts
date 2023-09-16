@@ -4,7 +4,7 @@ import semver from 'semver/preload'
 
 const TEMP_PUBLISH_PREFIX = "autoversion-tmp-publishing-"
 
-async function autoversionSetup(tags: TagResult, versionBase: string, git: SimpleGit) {
+async function autoversionSetup(tags: TagResult, versionBase: string, createBuildBranch: boolean, git: SimpleGit) {
   const versionBaseCompare = `${versionBase}.`
   const matching = tags.all
       .map(t => t.startsWith(TEMP_PUBLISH_PREFIX) ? t.substring(TEMP_PUBLISH_PREFIX.length) : t)
@@ -19,8 +19,10 @@ async function autoversionSetup(tags: TagResult, versionBase: string, git: Simpl
   // Set outputs for other workflow steps to use
   core.setOutput('nextVersion', nextVersion)
 
-  const branchName = `build-${nextVersion}`;
-  await git.checkoutLocalBranch(branchName)
+  if (createBuildBranch) {
+    const branchName = `build-${nextVersion}`;
+    await git.checkoutLocalBranch(branchName)
+  }
 
   const markerTag = `${TEMP_PUBLISH_PREFIX}${nextVersion}`;
 
@@ -53,6 +55,7 @@ async function autoversionComplete(git: SimpleGit, versionBase: string, finalize
 export async function run(): Promise<void> {
   try {
     const versionBase: string = core.getInput('versionBase')
+    const createBuildBranch: boolean = core.getInput('createBuildBranch') === "true"
     const finalizeBuildVersion: string = core.getInput('finalizeBuildVersion')
 
     core.debug(`versionBase: ${versionBase}`)
@@ -66,7 +69,7 @@ export async function run(): Promise<void> {
     core.debug('----------tags----------')
 
     if (finalizeBuildVersion === '') {
-      await autoversionSetup(tags, versionBase, git)
+      await autoversionSetup(tags, versionBase, createBuildBranch, git)
     } else {
       const branchName = `build-${finalizeBuildVersion}`;
       await autoversionComplete(git, versionBase, finalizeBuildVersion, branchName, tags)

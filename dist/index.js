@@ -11619,7 +11619,7 @@ const core = __importStar(__nccwpck_require__(2186));
 const simple_git_1 = __importDefault(__nccwpck_require__(9103));
 const preload_1 = __importDefault(__nccwpck_require__(4360));
 const TEMP_PUBLISH_PREFIX = "autoversion-tmp-publishing-";
-async function autoversionSetup(tags, versionBase, git) {
+async function autoversionSetup(tags, versionBase, createBuildBranch, git) {
     const versionBaseCompare = `${versionBase}.`;
     const matching = tags.all
         .map(t => t.startsWith(TEMP_PUBLISH_PREFIX) ? t.substring(TEMP_PUBLISH_PREFIX.length) : t)
@@ -11631,8 +11631,10 @@ async function autoversionSetup(tags, versionBase, git) {
     const nextVersion = `${versionBase}.${nextPatch}`;
     // Set outputs for other workflow steps to use
     core.setOutput('nextVersion', nextVersion);
-    const branchName = `build-${nextVersion}`;
-    await git.checkoutLocalBranch(branchName);
+    if (createBuildBranch) {
+        const branchName = `build-${nextVersion}`;
+        await git.checkoutLocalBranch(branchName);
+    }
     const markerTag = `${TEMP_PUBLISH_PREFIX}${nextVersion}`;
     await git.raw(["tag", markerTag]);
     await git.raw(["push", "origin", "tag", markerTag]);
@@ -11658,6 +11660,7 @@ async function autoversionComplete(git, versionBase, finalizeBuildVersion, branc
 async function run() {
     try {
         const versionBase = core.getInput('versionBase');
+        const createBuildBranch = core.getInput('createBuildBranch') === "true";
         const finalizeBuildVersion = core.getInput('finalizeBuildVersion');
         core.debug(`versionBase: ${versionBase}`);
         core.debug(`finalizeBuildVersion: ${finalizeBuildVersion}`);
@@ -11667,7 +11670,7 @@ async function run() {
         tags.all.forEach(t => core.debug(t));
         core.debug('----------tags----------');
         if (finalizeBuildVersion === '') {
-            await autoversionSetup(tags, versionBase, git);
+            await autoversionSetup(tags, versionBase, createBuildBranch, git);
         }
         else {
             const branchName = `build-${finalizeBuildVersion}`;
