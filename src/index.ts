@@ -1,29 +1,10 @@
 import * as core from '@actions/core'
 import simpleGit, {SimpleGit, TagResult} from 'simple-git'
-import semver from 'semver/preload'
+import semver from "semver/preload";
 
 const TEMP_PUBLISH_PREFIX = "autoversion-tmp-publishing-"
 
-async function autoversionSetup(tags: TagResult, versionBase: string, createBuildBranch: boolean, git: SimpleGit) {
-  const versionBaseCompare = `${versionBase}.`
-  const matching = tags.all
-      .map(t => t.startsWith(TEMP_PUBLISH_PREFIX) ? t.substring(TEMP_PUBLISH_PREFIX.length) : t)
-      .filter(t => t.startsWith(versionBaseCompare))
-      .map(t => semver.parse(t))
-      .filter(ver => ver !== null && ver !== undefined)
-
-  const sorted = matching.sort((v1, v2) => v2!.compare(v1!))
-  const nextPatch = sorted.length > 0 ? sorted[0]!.patch + 1 : 0
-  const nextVersion = `${versionBase}.${nextPatch}`
-
-  // Set outputs for other workflow steps to use
-  core.setOutput('nextVersion', nextVersion)
-
-  if (createBuildBranch) {
-    const branchName = `build-${nextVersion}`;
-    await git.checkoutLocalBranch(branchName)
-  }
-
+async function autoversionSetup(nextVersion: string, git: SimpleGit) {
   const markerTag = `${TEMP_PUBLISH_PREFIX}${nextVersion}`;
 
   await git.raw(["tag", markerTag])
@@ -32,20 +13,22 @@ async function autoversionSetup(tags: TagResult, versionBase: string, createBuil
   core.debug(`autoversion setup complete with markerTag ${markerTag}`)
 }
 
-async function autoversionComplete(git: SimpleGit, versionBase: string, finalizeBuildVersion: string, branchName: string, tags: TagResult) {
-  await git.add("./Package.swift")
-  await git.commit(`KMM SPM package release for ${finalizeBuildVersion}`)
-  await git.addAnnotatedTag(finalizeBuildVersion, `KMM release version ${finalizeBuildVersion}`)
-  await git.raw("push", "origin", "-u", branchName, "--follow-tags")
-  // await git.raw("push", "--follow-tags")
+async function autoversionComplete(nextVersion: string, git: SimpleGit) {
+  const version = semver.parse(nextVersion)
+  if(version) {
+    const versionBase = `${version.major}.${version.minor}`
 
-  const markerTagPrefix = `${TEMP_PUBLISH_PREFIX}${versionBase}`;
-  const tagsToDelete = tags.all.filter(t => t.startsWith(markerTagPrefix))
+    const tags = await git.tags()
+    const markerTagPrefix = `${TEMP_PUBLISH_PREFIX}${versionBase}`;
+    const tagsToDelete = tags.all.filter(t => t.startsWith(markerTagPrefix))
 
-  await Promise.all(tagsToDelete.map(async (t) => {
-    await git.raw(["tag", "-d", t])
-    await git.raw(["push", "origin", "-d", t])
-  }))
+    await Promise.all(tagsToDelete.map(async (t) => {
+      await git.raw(["tag", "-d", t])
+      await git.raw(["push", "origin", "-d", t])
+    }))
+  }else {
+    throw new Error(`nextVersion parameter must be a valid semver string. Current value: ${nextVersion}`)
+  }
 }
 
 /**
@@ -54,25 +37,18 @@ async function autoversionComplete(git: SimpleGit, versionBase: string, finalize
  */
 export async function run(): Promise<void> {
   try {
-    const versionBase: string = core.getInput('versionBase')
-    const createBuildBranch: boolean = core.getInput('createBuildBranch') === "true"
-    const finalizeBuildVersion: string = core.getInput('finalizeBuildVersion')
+    const nextVersion: string = core.getInput('nextVersion')
+    const cleanupMarkers: boolean = core.getInput('cleanupMarkers') === "true"
 
-    core.debug(`versionBase: ${versionBase}`)
-    core.debug(`finalizeBuildVersion: ${finalizeBuildVersion}`)
+    core.debug(`nextVersion: ${nextVersion}`)
+    core.debug(`cleanupMarkers: ${cleanupMarkers}`)
 
     const git = simpleGit();
-    const tags = await git.tags()
 
-    core.debug('----------tags----------')
-    tags.all.forEach(t => core.debug(t))
-    core.debug('----------tags----------')
-
-    if (finalizeBuildVersion === '') {
-      await autoversionSetup(tags, versionBase, createBuildBranch, git)
+    if (!cleanupMarkers) {
+      await autoversionSetup(nextVersion, git)
     } else {
-      const branchName = `build-${finalizeBuildVersion}`;
-      await autoversionComplete(git, versionBase, finalizeBuildVersion, branchName, tags)
+      await autoversionComplete(nextVersion, git)
     }
 
   } catch (error) {

@@ -11619,39 +11619,27 @@ const core = __importStar(__nccwpck_require__(2186));
 const simple_git_1 = __importDefault(__nccwpck_require__(9103));
 const preload_1 = __importDefault(__nccwpck_require__(4360));
 const TEMP_PUBLISH_PREFIX = "autoversion-tmp-publishing-";
-async function autoversionSetup(tags, versionBase, createBuildBranch, git) {
-    const versionBaseCompare = `${versionBase}.`;
-    const matching = tags.all
-        .map(t => t.startsWith(TEMP_PUBLISH_PREFIX) ? t.substring(TEMP_PUBLISH_PREFIX.length) : t)
-        .filter(t => t.startsWith(versionBaseCompare))
-        .map(t => preload_1.default.parse(t))
-        .filter(ver => ver !== null && ver !== undefined);
-    const sorted = matching.sort((v1, v2) => v2.compare(v1));
-    const nextPatch = sorted.length > 0 ? sorted[0].patch + 1 : 0;
-    const nextVersion = `${versionBase}.${nextPatch}`;
-    // Set outputs for other workflow steps to use
-    core.setOutput('nextVersion', nextVersion);
-    if (createBuildBranch) {
-        const branchName = `build-${nextVersion}`;
-        await git.checkoutLocalBranch(branchName);
-    }
+async function autoversionSetup(nextVersion, git) {
     const markerTag = `${TEMP_PUBLISH_PREFIX}${nextVersion}`;
     await git.raw(["tag", markerTag]);
     await git.raw(["push", "origin", "tag", markerTag]);
     core.debug(`autoversion setup complete with markerTag ${markerTag}`);
 }
-async function autoversionComplete(git, versionBase, finalizeBuildVersion, branchName, tags) {
-    await git.add("./Package.swift");
-    await git.commit(`KMM SPM package release for ${finalizeBuildVersion}`);
-    await git.addAnnotatedTag(finalizeBuildVersion, `KMM release version ${finalizeBuildVersion}`);
-    await git.raw("push", "origin", "-u", branchName, "--follow-tags");
-    // await git.raw("push", "--follow-tags")
-    const markerTagPrefix = `${TEMP_PUBLISH_PREFIX}${versionBase}`;
-    const tagsToDelete = tags.all.filter(t => t.startsWith(markerTagPrefix));
-    await Promise.all(tagsToDelete.map(async (t) => {
-        await git.raw(["tag", "-d", t]);
-        await git.raw(["push", "origin", "-d", t]);
-    }));
+async function autoversionComplete(nextVersion, git) {
+    const version = preload_1.default.parse(nextVersion);
+    if (version) {
+        const versionBase = `${version.major}.${version.minor}`;
+        const tags = await git.tags();
+        const markerTagPrefix = `${TEMP_PUBLISH_PREFIX}${versionBase}`;
+        const tagsToDelete = tags.all.filter(t => t.startsWith(markerTagPrefix));
+        await Promise.all(tagsToDelete.map(async (t) => {
+            await git.raw(["tag", "-d", t]);
+            await git.raw(["push", "origin", "-d", t]);
+        }));
+    }
+    else {
+        throw new Error(`nextVersion parameter must be a valid semver string. Current value: ${nextVersion}`);
+    }
 }
 /**
  * The main function for the action.
@@ -11659,22 +11647,16 @@ async function autoversionComplete(git, versionBase, finalizeBuildVersion, branc
  */
 async function run() {
     try {
-        const versionBase = core.getInput('versionBase');
-        const createBuildBranch = core.getInput('createBuildBranch') === "true";
-        const finalizeBuildVersion = core.getInput('finalizeBuildVersion');
-        core.debug(`versionBase: ${versionBase}`);
-        core.debug(`finalizeBuildVersion: ${finalizeBuildVersion}`);
+        const nextVersion = core.getInput('nextVersion');
+        const cleanupMarkers = core.getInput('cleanupMarkers') === "true";
+        core.debug(`nextVersion: ${nextVersion}`);
+        core.debug(`cleanupMarkers: ${cleanupMarkers}`);
         const git = (0, simple_git_1.default)();
-        const tags = await git.tags();
-        core.debug('----------tags----------');
-        tags.all.forEach(t => core.debug(t));
-        core.debug('----------tags----------');
-        if (finalizeBuildVersion === '') {
-            await autoversionSetup(tags, versionBase, createBuildBranch, git);
+        if (!cleanupMarkers) {
+            await autoversionSetup(nextVersion, git);
         }
         else {
-            const branchName = `build-${finalizeBuildVersion}`;
-            await autoversionComplete(git, versionBase, finalizeBuildVersion, branchName, tags);
+            await autoversionComplete(nextVersion, git);
         }
     }
     catch (error) {

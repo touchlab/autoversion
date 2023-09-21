@@ -1,22 +1,15 @@
-name: 'Autoversion'
-description: 'Automatically calculates the next patch version from a base and existing git tags'
+name: 'Auto-version: Tag Marker'
+description: 'Adds marker tags for pending versions, and cleans them up on a successful build.'
 author: 'Kevin Galligan'
 
 inputs:
-  versionBase:
-    description: 'Base version value. Must be x.y.'
-    required: true
-  createBuildBranch:
-    description: 'If true, create a build branch.'
-    required: false
-    default: 'false'
-  finalizeBuildVersion:
-    description: 'Version to finalize. This is the second completion step of autoversion.'
-    required: false
-
-outputs:
   nextVersion:
-    description: 'Next version'
+    description: 'The next version to be built. Must be a valid semver string x.y.z'
+    required: true
+
+  cleanupMarkers:
+    description: 'When build is successful, pass in true to clean up marker tags.'
+    required: false
 
 runs:
   using: node16
